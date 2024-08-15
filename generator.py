@@ -2,14 +2,29 @@ import boto3
 import re
 import json
 
-from typing import List
+from typing import List, Optional
 from aws.claude import BedrockClaude
+from prompt import get_llm_image_prompt
 from utils import display_image
 from config import config
 
 
-def gen_image_prompt(prompt: str) -> List[str]:
-    claude = BedrockClaude()
+def gen_image_prompt(request: str,
+                     style: str,
+                     temperature: Optional[float] = None,
+                     top_p: Optional[float] = None,
+                     top_k: Optional[int] = None) -> List[str]:
+    prompt = get_llm_image_prompt(request=request, style=style)
+
+    model_kwargs = {}
+    if temperature is not None:
+        model_kwargs['temperature'] = temperature
+    if top_p is not None:
+        model_kwargs['top_p'] = top_p
+    if top_k is not None:
+        model_kwargs['top_k'] = top_k
+
+    claude = BedrockClaude(**model_kwargs)
     res = claude.invoke_llm_response(prompt)
 
     pattern = r'<prompt>(.*?)</prompt>'

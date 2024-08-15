@@ -17,7 +17,7 @@ Follow style guide in <style> and write three image creating prompts. Use this f
 DEFAULT_STYLE = "minimalist, simple, clean and abstract background image, and do not contain many patterns, logos, or letters."
 
 
-def get_prompt(request, style): 
+def get_llm_image_prompt(request, style):
     return PromptTemplate(
                 template=PROMPT,
                 input_variables=["style", "request"]

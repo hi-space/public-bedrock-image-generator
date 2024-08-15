@@ -10,7 +10,7 @@ from utils import encode_image_base64
 
 
 class BedrockClaude():
-    def __init__(self):
+    def __init__(self, **model_kwargs):
         self.region = config.BEDROCK_REGION
         self.modelId = config.LLM_MODEL_ID
         self.bedrock = boto3.client(
@@ -33,6 +33,7 @@ class BedrockClaude():
             'stop_sequences': ['Human:', 'H: ']
         }
 
+        self.model_kwargs.update(model_kwargs)
 
     '''
     Langchain API: get ChatBedrock
