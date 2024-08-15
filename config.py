@@ -9,5 +9,6 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY: str
     AWS_SECRET_KEY: str
     LLM_MODEL_ID: str
+    IMAGE_GEN_MODEL_ID: str
 
 config = Settings()
