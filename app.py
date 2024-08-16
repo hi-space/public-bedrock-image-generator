@@ -1,10 +1,17 @@
-import streamlit as st
-import random
 import base64
+import streamlit as st
+from enum import Enum
 from io import BytesIO
-from generator import gen_image, gen_image_prompt
+from generator import gen_image, gen_image_prompt, gen_mm_image_prompt
 from prompt import DEFAULT_STYLE
 from params import ImageParams, ImageSize
+from utils import encode_image_bytes
+
+
+class PromptTab(Enum):
+    BASIC_PROMPT = "Basic Prompt"
+    LLM_PROMPT = "LLM Prompt"
+    MM_LLM_PROMPT = "Multimodal LLM Prompt"
 
 
 def initialize_session_state():
@@ -15,19 +22,29 @@ def initialize_session_state():
     if 'use_colors' not in st.session_state:
         st.session_state.use_colors = False
 
-def render_prompt_section(is_llm_prompt):
-    st.subheader("Prompt")
-    is_llm_prompt = st.checkbox("Using LLM Prompt", value=True)
 
-    if is_llm_prompt:
-        style_text = st.text_area(
-            "Style:",
-            value=DEFAULT_STYLE,
-            disabled=not is_llm_prompt
-        )
-        keyword_text = st.text_area("Keyword:", disabled=not is_llm_prompt)
-    else:
-        prompt_text = st.text_area("Prompt:", disabled=is_llm_prompt)
+def render_prompt_section():
+    st.subheader("Prompt")
+
+    selected_option = st.selectbox("Choose an option:", [
+        PromptTab.BASIC_PROMPT.value,
+        PromptTab.LLM_PROMPT.value,
+        PromptTab.MM_LLM_PROMPT.value
+    ])
+
+    if selected_option == PromptTab.BASIC_PROMPT.value:
+        prompt_text = st.text_area("Enter your prompt:")
+
+    elif selected_option == PromptTab.LLM_PROMPT.value:
+        style_text = st.text_area("Enter the style:", value=DEFAULT_STYLE)
+        keyword_text = st.text_area("Enter the keyword:")
+
+    elif selected_option == PromptTab.MM_LLM_PROMPT.value:
+        reference_image = st.file_uploader("Upload a reference image:")
+        if reference_image is not None:
+            with st.expander("Image Preview"):
+                st.image(reference_image, caption="Uploaded Image", use_column_width=True)
+        multimodal_keyword_text = st.text_area("Enter the multimodal keyword:")
 
     llm_config = {}
     with st.expander("LLM Configuration", expanded=False):
@@ -60,15 +77,25 @@ def render_prompt_section(is_llm_prompt):
         llm_config['top_p'] = top_p
         llm_config['top_k'] = top_k
 
-    if st.button("Generate Prompt", type="secondary"):
-        if is_llm_prompt:
+    if st.button("Generate Prompt", type="primary"):
+        if selected_option == PromptTab.BASIC_PROMPT.value:
+            st.session_state.image_prompts = [prompt_text]
+
+        if selected_option == PromptTab.LLM_PROMPT.value:
             st.session_state.image_prompts = gen_image_prompt(
                 request=keyword_text,
                 style=style_text,
                 **llm_config
             )
-        else:
-            st.session_state.image_prompts = [prompt_text]
+
+        if selected_option == PromptTab.MM_LLM_PROMPT.value:
+            image = encode_image_bytes(reference_image)
+            st.session_state.image_prompts = gen_mm_image_prompt(
+                request=multimodal_keyword_text,
+                image=image,
+                **llm_config
+            )
+
 
 def render_image_prompt_section():
     st.subheader("Image Prompt")
@@ -82,6 +109,7 @@ def render_image_prompt_section():
         selected_prompts[i] = st.text_area(f"Prompt {i + 1}", value=prompt, key=f"selected_prompt_{i}", height=50)
     
     return selected_prompts
+
 
 def render_configuration_section():
     st.subheader("Image Configurations")
@@ -116,6 +144,7 @@ def render_configuration_section():
 
     return num_images, cfg_scale, seed, size_options[selected_size], generate_images_button
 
+
 def generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size):
     st.subheader("Image Generation")
     with st.spinner("Generating..."):
@@ -144,7 +173,7 @@ def main():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        render_prompt_section(True)
+        render_prompt_section()
 
     with col2:
         selected_prompts = render_image_prompt_section()

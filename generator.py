@@ -4,7 +4,7 @@ import json
 
 from typing import List, Optional
 from aws.claude import BedrockClaude
-from prompt import get_llm_image_prompt
+from prompt import get_llm_image_prompt, get_mm_llm_image_prompt
 from utils import display_image
 from config import config
 
@@ -26,10 +26,27 @@ def gen_image_prompt(request: str,
 
     claude = BedrockClaude(**model_kwargs)
     res = claude.invoke_llm_response(prompt)
+    return _extract_format(res)
 
-    pattern = r'<prompt>(.*?)</prompt>'
-    image_prompts = re.findall(pattern, res)
-    return image_prompts
+
+def gen_mm_image_prompt(request: str,
+                        image: str,
+                        temperature: Optional[float] = None,
+                        top_p: Optional[float] = None,
+                        top_k: Optional[int] = None) -> List[str]:
+    prompt = get_mm_llm_image_prompt(request=request)
+
+    model_kwargs = {}
+    if temperature is not None:
+        model_kwargs['temperature'] = temperature
+    if top_p is not None:
+        model_kwargs['top_p'] = top_p
+    if top_k is not None:
+        model_kwargs['top_k'] = top_k
+
+    claude = BedrockClaude(**model_kwargs)
+    res = claude.invoke_llm_response(text=prompt, image=image)
+    return _extract_format(res)
 
 
 def gen_image(body: str, debug: bool = True):
@@ -48,3 +65,7 @@ def gen_image(body: str, debug: bool = True):
         display_image(image)
     return image
 
+
+def _extract_format(result_string):
+    pattern = r'<prompt>(.*?)</prompt>'
+    return re.findall(pattern, result_string)
