@@ -19,45 +19,46 @@ def render_prompt_section(is_llm_prompt):
     st.subheader("Prompt")
     is_llm_prompt = st.checkbox("Using LLM Prompt", value=True)
 
-    prompt_text = st.text_area("Prompt:", disabled=is_llm_prompt)
-    style_text = st.text_area(
-        "Style:",
-        value=DEFAULT_STYLE,
-        disabled=not is_llm_prompt
-    )
-    keyword_text = st.text_area("Keyword:", disabled=not is_llm_prompt)
+    if is_llm_prompt:
+        style_text = st.text_area(
+            "Style:",
+            value=DEFAULT_STYLE,
+            disabled=not is_llm_prompt
+        )
+        keyword_text = st.text_area("Keyword:", disabled=not is_llm_prompt)
+    else:
+        prompt_text = st.text_area("Prompt:", disabled=is_llm_prompt)
 
     llm_config = {}
-    if is_llm_prompt:
-        with st.expander("LLM Configuration", expanded=False):
-            temperature = st.slider(
-                "Temperature", 
-                min_value=0.0, 
-                max_value=1.0, 
-                value=0.7, 
-                step=0.1, 
-                help="모델의 창의성을 조절합니다. 값이 높을수록 더 다양하고 예측 불가능한 응답을 생성합니다."
-            )
-            top_p = st.slider(
-                "Top P", 
-                min_value=0.0, 
-                max_value=1.0, 
-                value=0.9, 
-                step=0.1, 
-                help="응답에서 선택할 단어의 집합을 확률적으로 제한합니다. 값이 낮을수록 더 확실한 단어들이 선택됩니다."
-            )
-            top_k = st.slider(
-                "Top K", 
-                min_value=0, 
-                max_value=500, 
-                value=250, 
-                step=5, 
-                help="응답에서 선택할 단어의 수를 제한합니다. 작은 값은 더 집중된 결과를, 큰 값은 더 다양한 결과를 제공합니다."
-            )
-            
-            llm_config['temperature'] = temperature
-            llm_config['top_p'] = top_p
-            llm_config['top_k'] = top_k
+    with st.expander("LLM Configuration", expanded=False):
+        temperature = st.slider(
+            "Temperature",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.7,
+            step=0.1,
+            help="모델의 창의성을 조절합니다. 값이 높을수록 더 다양하고 예측 불가능한 응답을 생성합니다."
+        )
+        top_p = st.slider(
+            "Top P",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.9,
+            step=0.1,
+            help="응답에서 선택할 단어의 집합을 확률적으로 제한합니다. 값이 낮을수록 더 확실한 단어들이 선택됩니다."
+        )
+        top_k = st.slider(
+            "Top K",
+            min_value=0,
+            max_value=500,
+            value=250,
+            step=5,
+            help="응답에서 선택할 단어의 수를 제한합니다. 작은 값은 더 집중된 결과를, 큰 값은 더 다양한 결과를 제공합니다."
+        )
+
+        llm_config['temperature'] = temperature
+        llm_config['top_p'] = top_p
+        llm_config['top_k'] = top_k
 
     if st.button("Generate Prompt", type="secondary"):
         if is_llm_prompt:
