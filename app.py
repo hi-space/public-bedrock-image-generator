@@ -10,6 +10,10 @@ from params import ImageParams, ImageSize
 def initialize_session_state():
     if 'image_prompts' not in st.session_state:
         st.session_state.image_prompts = []
+    if 'selected_colors' not in st.session_state:
+        st.session_state.selected_colors = []
+    if 'use_colors' not in st.session_state:
+        st.session_state.use_colors = False
 
 def render_prompt_section(is_llm_prompt):
     st.subheader("Prompt")
@@ -79,17 +83,35 @@ def render_image_prompt_section():
     return selected_prompts
 
 def render_configuration_section():
-    st.subheader("Configurations")
+    st.subheader("Image Configurations")
     with st.expander("Image Configuration", expanded=True):
         num_images = st.slider("Number of Images", min_value=1, max_value=5, value=1, step=1)
         cfg_scale = st.slider("CFG Scale", min_value=1.0, max_value=10.0, value=8.0, step=0.5)
-        random_seed = random.randint(0, 2147483646)
-        seed = st.number_input("Seed", min_value=0, value=random_seed, max_value=2147483646, step=1)
-
+        seed = st.number_input("Seed", min_value=0, value=0, max_value=2147483646, step=1)
         size_options = {f"{size.value[0]} X {size.value[1]}": size for size in ImageSize}
         selected_size = st.selectbox("Image Size", options=list(size_options.keys()))
         
-        generate_images_button = st.button("Generate Images", type="primary")
+        st.session_state.use_colors = st.checkbox("Using color references", value=False)
+        if st.session_state.use_colors:
+            color_picker = st.color_picker("Pick a color")
+            if color_picker and color_picker not in st.session_state.selected_colors and len(st.session_state.selected_colors) < 10:
+                st.session_state.selected_colors.append(color_picker)
+            
+            st.session_state.selected_colors = st.multiselect(
+                "Selected Colors",
+                options=st.session_state.selected_colors,
+                default=st.session_state.selected_colors,
+                max_selections=10,
+            )
+            
+            if st.session_state.selected_colors:
+                color_html = "<div style='display: flex; flex-wrap: wrap;'>"
+                for color in st.session_state.selected_colors:
+                    color_html += f"""<div style='width: 24px; height: 24px; background-color: {color}; margin-left: 5px; margin-bottom: 8px; border-radius: 5px;'></div>"""
+                color_html += "</div>"
+                st.markdown(color_html, unsafe_allow_html=True)
+
+    generate_images_button = st.button("Generate Images", type="primary")
 
     return num_images, cfg_scale, seed, size_options[selected_size], generate_images_button
 
@@ -100,7 +122,10 @@ def generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size
         img_params.set_configuration(count=num_images, size=selected_size, cfg=cfg_scale)
     
         for image_prompt in selected_prompts:
-            body = img_params.text_to_image(text=image_prompt)
+            if st.session_state.use_colors:
+                body = img_params.color_guide(text=image_prompt, colors=st.session_state.selected_colors)
+            else:
+                body = img_params.text_to_image(text=image_prompt)
             imgs = gen_image(body=body)
             st.info(image_prompt)
             cols = st.columns(len(imgs))
