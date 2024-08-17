@@ -1,7 +1,8 @@
 import base64
+import requests
 from PIL import Image
 from io import BytesIO
-import requests
+from datetime import datetime
 from IPython.display import display, HTML
 
 
@@ -47,3 +48,6 @@ def display_image(utf8):
         for img_str in utf8:
             html = f'<img src="data:image/png;base64,{img_str}" height="300"/>'
             display(HTML(html))
+
+def get_current_time():
+    return datetime.now().strftime('%y-%m-%d %H:%M:%S')

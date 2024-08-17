@@ -59,6 +59,9 @@ class ImageParams:
                 "seed": self.seed
             }
         }
+    
+    def get_configuration(self):
+        return self._config
 
     def set_configuration(self, count: int = 1, size: ImageSize = ImageSize.SIZE_512x512, cfg: float = 8.0):
         self._config = self._default_configuration(count, size, cfg)

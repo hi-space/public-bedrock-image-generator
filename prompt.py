@@ -38,3 +38,7 @@ def get_mm_llm_image_prompt(request: str):
                 template=PROMPT,
                 input_variables=["request"]
             ).format(request=request)
+
+
+def get_image_tags_prompt():
+    return """Look at this image and create an image tag. Answer only a list of strings"""

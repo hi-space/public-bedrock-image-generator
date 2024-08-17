@@ -1,12 +1,24 @@
+import uuid
+import json
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import streamlit as st
+import pandas as pd
 from enum import Enum
 from io import BytesIO
-from generator import gen_image, gen_image_prompt, gen_mm_image_prompt
+from generator import (
+    gen_image, gen_image_prompt, gen_mm_image_prompt, gen_tags
+)
 from prompt import DEFAULT_STYLE
 from params import ImageParams, ImageSize
-from utils import encode_image_bytes
+from utils import encode_image_bytes, get_current_time
+from aws.dynamodb import DynamoDB, _decimal_default
+from aws.s3 import S3
+from config import config
 
+
+s3 = S3(bucket_name=config.S3_BUCKET)
+db = DynamoDB(table_name=config.DYNAMODB_TABLE)
 
 class PromptTab(Enum):
     BASIC_PROMPT = "Basic Prompt"
@@ -26,11 +38,10 @@ def initialize_session_state():
 def render_prompt_section():
     st.subheader("Prompt")
 
-    selected_option = st.selectbox("Choose an option:", [
-        PromptTab.BASIC_PROMPT.value,
-        PromptTab.LLM_PROMPT.value,
-        PromptTab.MM_LLM_PROMPT.value
-    ])
+    selected_option = st.selectbox(
+        "Choose an option:", 
+        [tab.value for tab in PromptTab]
+    )
 
     if selected_option == PromptTab.BASIC_PROMPT.value:
         prompt_text = st.text_area("Enter your prompt:")
@@ -46,55 +57,46 @@ def render_prompt_section():
                 st.image(reference_image, caption="Uploaded Image", use_column_width=True)
         multimodal_keyword_text = st.text_area("Enter the multimodal keyword:")
 
-    llm_config = {}
-    with st.expander("LLM Configuration", expanded=False):
-        temperature = st.slider(
-            "Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.7,
-            step=0.1,
-            help="모델의 창의성을 조절합니다. 값이 높을수록 더 다양하고 예측 불가능한 응답을 생성합니다."
-        )
-        top_p = st.slider(
-            "Top P",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.9,
-            step=0.1,
-            help="응답에서 선택할 단어의 집합을 확률적으로 제한합니다. 값이 낮을수록 더 확실한 단어들이 선택됩니다."
-        )
-        top_k = st.slider(
-            "Top K",
-            min_value=0,
-            max_value=500,
-            value=250,
-            step=5,
-            help="응답에서 선택할 단어의 수를 제한합니다. 작은 값은 더 집중된 결과를, 큰 값은 더 다양한 결과를 제공합니다."
-        )
-
-        llm_config['temperature'] = temperature
-        llm_config['top_p'] = top_p
-        llm_config['top_k'] = top_k
-
     if st.button("Generate Prompt", type="primary"):
         if selected_option == PromptTab.BASIC_PROMPT.value:
             st.session_state.image_prompts = [prompt_text]
 
-        if selected_option == PromptTab.LLM_PROMPT.value:
+        elif selected_option == PromptTab.LLM_PROMPT.value:
             st.session_state.image_prompts = gen_image_prompt(
                 request=keyword_text,
                 style=style_text,
                 **llm_config
             )
 
-        if selected_option == PromptTab.MM_LLM_PROMPT.value:
+        elif selected_option == PromptTab.MM_LLM_PROMPT.value:
             image = encode_image_bytes(reference_image)
             st.session_state.image_prompts = gen_mm_image_prompt(
                 request=multimodal_keyword_text,
                 image=image,
                 **llm_config
             )
+
+    llm_config = {}
+    with st.expander("LLM Configuration", expanded=False):
+        temperature = st.slider(
+            "Temperature",
+            min_value=0.0, max_value=1.0, value=0.7, step=0.1,
+            help="모델의 창의성을 조절합니다. 값이 높을수록 더 다양하고 예측 불가능한 응답을 생성합니다."
+        )
+        top_p = st.slider(
+            "Top P",
+            min_value=0.0, max_value=1.0, value=0.9, step=0.1,
+            help="응답에서 선택할 단어의 집합을 확률적으로 제한합니다. 값이 낮을수록 더 확실한 단어들이 선택됩니다."
+        )
+        top_k = st.slider(
+            "Top K",
+            min_value=0, max_value=500, value=250, step=5,
+            help="응답에서 선택할 단어의 수를 제한합니다. 작은 값은 더 집중된 결과를, 큰 값은 더 다양한 결과를 제공합니다."
+        )
+
+        llm_config['temperature'] = temperature
+        llm_config['top_p'] = top_p
+        llm_config['top_k'] = top_k
 
 
 def render_image_prompt_section():
@@ -146,43 +148,119 @@ def render_configuration_section():
 
 
 def generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size):
-    st.subheader("Image Generation")
-    with st.spinner("Generating..."):
-        img_params = ImageParams(seed=seed)
-        img_params.set_configuration(count=num_images, size=selected_size, cfg=cfg_scale)
+    def _generate_image_task(image_prompt, img_params, cfg, use_colors):
+        if use_colors:
+            body = img_params.color_guide(text=image_prompt, colors=st.session_state.selected_colors)
+            cfg['colorGuide'] = st.session_state.selected_colors
+        else:
+            body = img_params.text_to_image(text=image_prompt)
+        
+        print(image_prompt)
+        imgs = gen_image(body=body)
+
+        return image_prompt, imgs, cfg
     
-        for image_prompt in selected_prompts:
-            if st.session_state.use_colors:
-                body = img_params.color_guide(text=image_prompt, colors=st.session_state.selected_colors)
-            else:
-                body = img_params.text_to_image(text=image_prompt)
-            imgs = gen_image(body=body)
+    def _show_and_upload_images(results = []):
+        for image_prompt, imgs, cfg in results:
             st.info(image_prompt)
             cols = st.columns(len(imgs))
             for idx, img in enumerate(imgs):
                 with cols[idx]:
-                    st.image(BytesIO(base64.b64decode(img)))
+                    image_data = BytesIO(base64.b64decode(img))
+
+                    try:
+                        tags = json.loads(gen_tags(img))
+                    except:
+                        tags = []
+
+                    st.image(image_data)
+                    st.write(tags)
+
+                    with st.spinner("Upload..."):
+                        upload_image(
+                            image=image_data,
+                            prompt=image_prompt,
+                            cfg=cfg,
+                            tags=tags
+                        )
+    
+    st.divider()
+    st.subheader("Image Generation")
+    with st.status("Generating...", expanded=True):
+        img_params = ImageParams(seed=seed)
+        img_params.set_configuration(count=num_images, size=selected_size, cfg=cfg_scale)
+
+        results = []
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for image_prompt in selected_prompts:
+                cfg = img_params.get_configuration()
+                futures.append(executor.submit(_generate_image_task, image_prompt, img_params, cfg, st.session_state.use_colors))
+            
+            for future in futures:
+                results.append(future.result())
+
+        _show_and_upload_images(results)
+
+def upload_image(image: bytes, prompt: str, cfg: dict, tags = []):
+    image_id = f"{uuid.uuid4()}.png"
+    s3.upload_object(key=image_id, bytes=image, extra_args={'ContentType': 'image/png'})
+    db.put_item({
+        "id": image_id,
+        "url": f"{config.CDN_URL}/{image_id}",
+        "prompt": prompt,
+        "config": cfg,
+        "tags": tags,
+        "created": get_current_time()
+    })
+
+
+def render_gallery():
+    items = db.scan_items({}).get("Items")
+    
+    df = pd.DataFrame(
+        items,
+        columns=["url", "prompt", "tags", "config", "created"],
+    )
+    df['config'] = df['config'].apply(lambda x: json.dumps(x, default=_decimal_default))
+
+    st.dataframe(
+        df, 
+        column_config={
+            "url": st.column_config.ImageColumn(label="image"),
+            "tags": st.column_config.ListColumn(label="tags")
+        },
+        hide_index=True,
+        use_container_width=True
+    ) 
+
 
 def main():
-    title = "Image Generator with LLM"
+    title = "🚀 MM-LLM Prompt-to-Image Generation"
     st.set_page_config(page_title=title, layout="wide")    
     st.title(title)
 
     initialize_session_state()
+    
+    tab1, tab2 = st.tabs(["🎨 Image Generator", "🖼️ Image Gallery"])
+    
+    with tab1:
+        col1, col2, col3 = st.columns(3)
 
-    col1, col2, col3 = st.columns(3)
+        with col1:
+            render_prompt_section()
 
-    with col1:
-        render_prompt_section()
+        with col2:
+            selected_prompts = render_image_prompt_section()
 
-    with col2:
-        selected_prompts = render_image_prompt_section()
+        with col3:
+            num_images, cfg_scale, seed, selected_size, generate_images_button = render_configuration_section()
 
-    with col3:
-        num_images, cfg_scale, seed, selected_size, generate_images_button = render_configuration_section()
+        if generate_images_button:
+            generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size)
 
-    if generate_images_button:
-        generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size)
+    with tab2:
+        render_gallery()
 
 
 if __name__ == "__main__":

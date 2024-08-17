@@ -1,6 +1,6 @@
 # Multimodal Prompt-to-Image Generation
 
-이미지 생성 모델을 사용하여 원하는 이미지를 생성하려면 프롬프트에서 이미지의 세부 사항을 정확하게 설명하는 것이 중요합니다. 그러나 사전 정보 없이 자세한 프롬프트를 만드는 것은 어려울 수 있습니다. 이를 해결하기 위해 Multimodal LLM은 사용자가 제공하는 스타일과 키워드를 기반으로 창의적인 이미지 프롬프트 아이디어를 제안합니다. 이 접근 방식을 사용하면 프롬프트를 만드는 데 필요한 노력이 줄어들어 사용자가 이미지 프롬프트를 보다 직관적으로 만들 수 있습니다.
+이미지 생성 모델을 사용하여 원하는 이미지를 생성하려면 프롬프트에서 이미지의 세부 사항을 정확하게 설명하는 것이 중요합니다. 그러나 사전 정보 없이 자세한 프롬프트를 만드는 것은 어려울 수 있습니다. 이를 돕기 위해 Multimodal LLM을 통해 사용자가 제공하는 스타일과 키워드를 기반으로 한 창의적인 이미지 프롬프트 아이디어를 제안합니다. 이를 통해 사용자는 보다 직관적으로 이미지 프롬프트를 생성할 수 있으며, 프롬프트 작성에 소요되는 노력을 줄일 수 있습니다.
 
 이미지 생성 모델은 [Amazon Titan Image Generator G1 v2](https://aws.amazon.com/ko/blogs/korea/amazon-titan-image-generator-v2-is-now-available-in-amazon-bedrock/)를 사용합니다.
 
@@ -9,15 +9,20 @@
 ```sh
 pip install -r requirements.txt
 streamlit run app.py
+# or
+docker build -t image-gen-gallery .
+docker run -p 8000:8000 image-gen-gallery
 ```
 
-## Basic Prompt
+## Preview
+
+### Basic Prompt
 
 기본 이미지 생성 프롬프트를 사용했을 때 입니다. Titan Image Generator의 `COLOR_GUIDED_GENERATION` 기능을 활용하면, 설정한 색상 팔레트를 기반으로 이미지를 생성합니다.
 
 ![Basic Prompt](./assets/basic-prompt.png)
 
-## LLM Prompt
+### LLM Prompt
 
 LLM으로부터 Image Generation을 위한 프롬프트를 생성한 결과입니다. `style`, `keyword` 값을 입력하면, 해당 내용을 바탕으로 3개의 이미지 프롬프트를 제안합니다.
 
@@ -28,7 +33,7 @@ LLM으로부터 Image Generation을 위한 프롬프트를 생성한 결과입�
 
 ![LLM Prompt Result](./assets/llm-promt-result.png)
 
-## MM-LLM Prompt
+### MM-LLM Prompt
 
 Titan Image Generator 는 레퍼런스 이미지를 참조하여 새로운 이미지를 생성하는 몇 가지 옵션을 제공합니다.
 
@@ -44,3 +49,9 @@ Titan Image Generator 는 레퍼런스 이미지를 참조하여 새로운 이�
 ![MM LLM Prompt](./assets/mm-llm-prompt.png)
 
 ![MM LLM Prompt Result](./assets/mm-llm-prompt-result.png)
+
+### Imaeg Gallery
+
+![Image Gallery](./assets/gallery.png)
+
+생성된 이미지는 Amazon S3에 저장되고, 해당 이미지의 CloudFront URL과 메타데이터는 DynamoDB에 저장됩니다. 사용자는 저장된 데이터를 기반으로 생성된 이미지를 확인할 수 있습니다.

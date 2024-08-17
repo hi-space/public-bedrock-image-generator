@@ -4,7 +4,11 @@ import json
 
 from typing import List, Optional
 from aws.claude import BedrockClaude
-from prompt import get_llm_image_prompt, get_mm_llm_image_prompt
+from prompt import (
+    get_llm_image_prompt,
+    get_mm_llm_image_prompt,
+    get_image_tags_prompt,
+)
 from utils import display_image
 from config import config
 
@@ -64,6 +68,13 @@ def gen_image(body: str, debug: bool = True):
     if debug:
         display_image(image)
     return image
+
+
+def gen_tags(image: str):
+    prompt = get_image_tags_prompt()
+    claude = BedrockClaude()
+    res = claude.invoke_llm_response(text=prompt, image=image)
+    return res
 
 
 def _extract_format(result_string):

@@ -106,29 +106,3 @@ class BedrockClaude():
     def invoke_llm_response(self, text: str, image: str = None, imgUrl: str = None, system: str = None):
         return self.invoke_llm(
             text=text, image=image, imgUrl=imgUrl, system=system).get('content', [])[0].get('text', '')
-
-
-    '''
-    Bedrock API: invoke LLM model stream
-    https://docs.aws.amazon.com/bedrock/latest/userguide/inference-invoke.html
-    '''
-    async def invoke_llm_stream(self, text: str):
-        try:
-            response = self.bedrock.invoke_model_with_response_stream(
-                #FIXME: anthropic.claude-3-sonnet-20240229-v1:0
-                modelId='anthropic.claude-v2:1', 
-                body= json.dumps({
-                    'prompt': f'\n\nHuman: {text}\n\nAssistant:',
-                    'max_tokens_to_sample': 4000,
-                })
-            )
-
-            stream = response.get('body')
-            if stream:
-                for event in stream:
-                    chunk = event.get('chunk')
-                    if chunk:
-                        yield json.loads(chunk.get('bytes').decode())['completion']
-        except Exception as e:
-            print(e)
-            return
