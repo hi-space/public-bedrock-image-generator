@@ -8,10 +8,16 @@ from prompt import (
     get_llm_image_prompt,
     get_mm_llm_image_prompt,
     get_image_tags_prompt,
+    get_translate_llm_prompt,
 )
 from utils import display_image
 from config import config
 
+
+def gen_english(request: str):
+    prompt = get_translate_llm_prompt(request=request)
+    claude = BedrockClaude()
+    return claude.invoke_llm_response(prompt)
 
 def gen_image_prompt(request: str,
                      style: str,

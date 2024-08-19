@@ -7,7 +7,7 @@ import pandas as pd
 from enum import Enum
 from io import BytesIO
 from generator import (
-    gen_image, gen_image_prompt, gen_mm_image_prompt, gen_tags
+    gen_image, gen_image_prompt, gen_mm_image_prompt, gen_tags, gen_english
 )
 from prompt import DEFAULT_STYLE
 from params import ImageParams, ImageSize
@@ -57,25 +57,6 @@ def render_prompt_section():
                 st.image(reference_image, caption="Uploaded Image", use_column_width=True)
         multimodal_keyword_text = st.text_area("Enter the multimodal keyword:")
 
-    if st.button("Generate Prompt", type="primary"):
-        if selected_option == PromptTab.BASIC_PROMPT.value:
-            st.session_state.image_prompts = [prompt_text]
-
-        elif selected_option == PromptTab.LLM_PROMPT.value:
-            st.session_state.image_prompts = gen_image_prompt(
-                request=keyword_text,
-                style=style_text,
-                **llm_config
-            )
-
-        elif selected_option == PromptTab.MM_LLM_PROMPT.value:
-            image = encode_image_bytes(reference_image)
-            st.session_state.image_prompts = gen_mm_image_prompt(
-                request=multimodal_keyword_text,
-                image=image,
-                **llm_config
-            )
-
     llm_config = {}
     with st.expander("LLM Configuration", expanded=False):
         temperature = st.slider(
@@ -97,6 +78,25 @@ def render_prompt_section():
         llm_config['temperature'] = temperature
         llm_config['top_p'] = top_p
         llm_config['top_k'] = top_k
+
+    if st.button("Generate Prompt", type="primary"):
+        if selected_option == PromptTab.BASIC_PROMPT.value:
+            st.session_state.image_prompts.extend([gen_english(request=prompt_text)])
+
+        elif selected_option == PromptTab.LLM_PROMPT.value:
+            st.session_state.image_prompts.extend(gen_image_prompt(
+                request=keyword_text,
+                style=style_text,
+                **llm_config
+            ))
+
+        elif selected_option == PromptTab.MM_LLM_PROMPT.value:
+            image = encode_image_bytes(reference_image)
+            st.session_state.image_prompts.extend(gen_mm_image_prompt(
+                request=multimodal_keyword_text,
+                image=image,
+                **llm_config
+            ))
 
 
 def render_image_prompt_section():
