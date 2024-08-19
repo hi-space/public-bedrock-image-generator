@@ -4,6 +4,10 @@
 
 이미지 생성 모델은 [Amazon Titan Image Generator G1 v2](https://aws.amazon.com/ko/blogs/korea/amazon-titan-image-generator-v2-is-now-available-in-amazon-bedrock/)를 사용합니다.
 
+## Overview
+
+![architecture](./assets/architecture.png)
+
 ## Getting Started
 
 ```sh

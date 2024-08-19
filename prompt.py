@@ -17,9 +17,10 @@ def get_translate_llm_prompt(request: str):
                 input_variables=["request"]
             ).format(request=request)
 
+
 def get_llm_image_prompt(request: str, style: str):
-    PROMPT = """You are an Assistant that creates prompts for generate image by image generator model. The image that Human wants is written in <request>.
-                Follow style guide in <style> and write three image creating prompts. Use this fomat without further explanation:
+    PROMPT = """You are an Assistant that creates prompts for generate background image by image generator model. The image that Human wants is written in <request>.
+                Follow style guide in <style> and write a image creating prompts as detail as possible keeping it to 500 characters or less. Use this fomat without further explanation:
                 <prompt>prompt</prompt>
 
                 <request>
@@ -39,8 +40,8 @@ def get_llm_image_prompt(request: str, style: str):
 
 
 def get_mm_llm_image_prompt(request: str):
-    PROMPT = """You are an Assistant that creates prompts for generate image by image generator model. The image that Human wants is written in <request>.
-                Write three image creation prompts to maintain the style of a given image. Use this fomat without further explanation:
+    PROMPT = """You are an Assistant that creates prompts for generate background image by image generator model. The image that Human wants is written in <request>.
+                Write a images creation prompts as detail as possible keeping it to 500 characters or less to maintain the style of a given image. Use this fomat without further explanation:
                 <prompt>prompt</prompt>
 
                 <request>

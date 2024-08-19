@@ -148,14 +148,13 @@ def render_configuration_section():
 
 
 def generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size):
-    def _generate_image_task(image_prompt, img_params, cfg, use_colors):
+    def _generate_image_task(image_prompt, img_params, cfg, use_colors, selected_colors):
         if use_colors:
-            body = img_params.color_guide(text=image_prompt, colors=st.session_state.selected_colors)
-            cfg['colorGuide'] = st.session_state.selected_colors
+            body = img_params.color_guide(text=image_prompt, colors=selected_colors)
+            cfg['colorGuide'] = selected_colors
         else:
             body = img_params.text_to_image(text=image_prompt)
         
-        print(image_prompt)
         imgs = gen_image(body=body)
 
         return image_prompt, imgs, cfg
@@ -195,7 +194,7 @@ def generate_images(selected_prompts, num_images, cfg_scale, seed, selected_size
             futures = []
             for image_prompt in selected_prompts:
                 cfg = img_params.get_configuration()
-                futures.append(executor.submit(_generate_image_task, image_prompt, img_params, cfg, st.session_state.use_colors))
+                futures.append(executor.submit(_generate_image_task, image_prompt, img_params, cfg, st.session_state.use_colors, st.session_state.selected_colors))
             
             for future in futures:
                 results.append(future.result())
@@ -222,8 +221,9 @@ def render_gallery():
         items,
         columns=["url", "prompt", "tags", "config", "created"],
     )
-    df['config'] = df['config'].apply(lambda x: json.dumps(x, default=_decimal_default))
-
+    df["config"] = df["config"].apply(lambda x: json.dumps(x, default=_decimal_default))
+    df = df.sort_values(by="created", ascending=False)
+    
     st.dataframe(
         df, 
         column_config={
